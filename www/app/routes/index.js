@@ -1,23 +1,28 @@
 var express = require('express');
 var router = express.Router();
-var publisher = require('./../../../publisher/publisher');
+var p = require('./../../../publisher/publisher');
 
-console.log(publisher);
 
 /* GET home page. */
-router.get('/', function(req, res, next) {
-  res.render('index', { title: 'Foodie' });
+router.get('/', function (req, res, next) {
+    res.render('index', {title: 'Foodie'});
 });
 
 /* process the sign up */
-router.post('/signup', function(req, res, next){
+router.post('/signup', function (req, res, next) {
 
-  // send the message to teh publisher service
-  console.log(req.body);
-  // return the user to the front page
+    var publisher = new p();
 
-
-
-  res.json('OK');
+    // send the message to teh publisher service
+    //console.log(req.body);
+    // return the user to the front page
+    try {
+        publisher.publish(req.body);
+    } catch (err) {
+        console.trace(err);
+    }
+    res.json('OK');
 });
+
+
 module.exports = router;
