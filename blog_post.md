@@ -128,6 +128,51 @@ I have tried both amqplib and wascally and I must say i did enjoy working with w
 
 You can take a look at both code samples here  [links to git repos] for amqplib and wascally here [links to git repos]  
 
+As we have seen above for a publisher and consumer to be able to effeciently communicate they need to create  
+a connection, atop of this connection a channel or more, then exchange needs to be specified and created, as well as the message queue, the queue needs to be bound to the exchange and only then can the messages start flowing.  
+
+Luckily wascally frees us from all this ceremony all that needs to be done is specify the important parameters in one configuration file.  
+
+This is simple and it looks as follows, I have put some comments inside for clarity.   
+
+``` 
+module.exports = {
+    "connection": {
+        // credentials to connecto to rabbitMQ server. 
+        "user": "guest",
+        "pass": "guest",
+        "server": "localhost",
+        // if you have virtual hosts configured this is that option 
+        "vhost": ""
+    },
+    // exchanges that we shall be talking to and their type. 
+    "exchanges": [
+        {
+            "name": "signup.main",
+            "type": "direct"
+        }
+    ],
+    
+    
+    "queues": [
+        {
+            "name": "signup-q.1"
+        }
+    ],
+    
+    // here we bind the exchanges and queues. 
+    "bindings": [
+        {
+            "exchange": "signup.main",
+            "target": "signup-q.1"
+        }
+    ]
+};
+```
+
+Given this configuration we can now use it in our publisher class. 
+Here I am assuming that everything is running on the same host but it could be as well running on different machines, in that case the config file will need to be specified for each machine making the connection to RabbitMQ.  
+
 ``` 
 var express = require('express');
 var router = express.Router();
@@ -202,7 +247,7 @@ publisher.prototype.reportErrors = function(err){
 publisher.prototype.sendMessage = function sendMessages(msg) {
 
     mq.publish(config.exchanges[0].name, {
-        type: "orders.incoming.type",
+        type: "signup.incoming.type",
         routingKey: "",
         body: msg
     });
@@ -215,5 +260,70 @@ We could have setup up multiple publishers for different purposes if that was a 
 
 The exchange type could be modified from Direct to Fanout and additional microservices hooked up as subscribers to process the signup messages.  
  
-
+Basically we are done from the publishers side, now the message goes via RabbitMQ and will be picked up by any available consumer. 
  
+On the subscriber side its basically the same process. 
+
+Load wascally pass it the config when the promise is returned assign a handler for the messages. 
+
+```
+/**
+ * Created by Max Kimambo on 3/4/16.
+ */
+var rabbit = require('wascally');
+var config = require('./../config/config');
+
+
+rabbit.configure(config).then(processMessage).then(undefined, reportErrors);
+
+
+/**
+Sets up a a message handler and a listener.
+ */
+function processMessage() {
+
+    // set all the handlers before starting subscription
+    rabbit.handle('orders.incoming.type', handleMessage);
+
+    // start subscription
+     rabbit.startSubscription(config.queues[0].name);
+}
+
+/**
+ * Handles incoming messages
+ * @param message
+ */
+function handleMessage(message) {
+
+    // here we can do something to the received message.
+    // e.g perform database insert
+    // send out email
+    // bill a person etc etc
+    var body = message.body;
+
+    console.log(body);
+
+    // after having processed the message we need to acknowledge it.
+    message.ack();
+}
+
+/**
+ * Rudimentary error handling.
+ * @param err
+ */
+function reportErrors(err) {
+    console.trace(err);
+}
+
+```
+
+This demonstrates the whole chain from the UI to the microservice. The inner workings of the microservice are beyond the scope of this article.  
+
+To run the solution just remember to start both the webapp and the subscriber.   
+
+``` 
+node subscriber/subscriber.js
+
+node www/bin 
+
+```
