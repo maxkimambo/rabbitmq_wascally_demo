@@ -32,7 +32,7 @@ publisher.prototype.sendMessage = function sendMessages(msg) {
         body: msg
     });
 
-    console.log('sent message %s', msg);
+
 };
 
 

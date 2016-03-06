@@ -24,5 +24,4 @@ router.post('/signup', function (req, res, next) {
     res.json('OK');
 });
 
-
 module.exports = router;
